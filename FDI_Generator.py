@@ -4,11 +4,12 @@ from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from xgboost import XGBRegressor
-
+import random
 
 def independent_var(data, cols, changing_rate):
     for col in cols:
-        data[col] *= np.random.uniform(1-changing_rate, 1+changing_rate)
+        # data[col] *= np.random.uniform(1-changing_rate, 1+changing_rate) #higher value
+        data[col] *= np.random.uniform(1, 1+changing_rate) #higher value 0.3
     return data
 
 def dependent_var(real_X, real_y, syn_X, model="XGBoost", scale=False):
@@ -22,8 +23,8 @@ def dependent_var(real_X, real_y, syn_X, model="XGBoost", scale=False):
         X_train, X_test, y_train, y_test = train_test_split(real_X, real_y, test_size=0.2, random_state=42)
         X_val, X_test, y_val, y_test = train_test_split(X_test, y_test, test_size=0.5, random_state=42)
 
-        xgb_regressor = XGBRegressor(n_estimators=1500,
-                                     learning_rate=0.07,
+        xgb_regressor = XGBRegressor(n_estimators=1000,
+                                     learning_rate=0.03,
                                      max_depth=6,
                                      subsample=0.8,
                                      colsample_bytree=0.8,
@@ -53,16 +54,16 @@ def main():
 
     X = data_real[vgm_columns + pg_columns + pl_columns + ql_columns]
     y = data_real[vlm_columns + vla_columns + vga_columns]
-
+    pl_columns50 = random.sample(pl_columns, len(pl_columns)//4*3)
     print("Generating independent data")
-    independent_values = independent_var(X.copy(), ["PL30"], 0.3)
+    independent_values = independent_var(X.copy(), pl_columns50, 0.3)
     print("Generating dependent data")
     dependent_values = dependent_var(X, y, independent_values, "XGBoost", False)
 
     result_df = pd.concat([independent_values, pd.DataFrame(dependent_values, columns=y.columns)], axis=1)
 
     print("Saving results")
-    result_df.to_csv('PL_Class_FDI_NotScaled.csv', index=False)
+    result_df.to_csv('PL_Class_FDI_NotScaled_lr0.03_1~1.3_75PL.csv', index=False)
     # result_df.to_csv('Real_AllScaled.csv', index=False)
     # result_df.to_csv('Real_XScaled.csv', index=False)
 

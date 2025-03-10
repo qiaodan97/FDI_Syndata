@@ -67,10 +67,14 @@ class VAE(nn.Module):
         return self.decode(z), mu, logvar
 
 # Define the loss function
-def loss_function(recon_x, x, mu, logvar):
+# def loss_function(recon_x, x, mu, logvar):
+    # recon_loss = nn.MSELoss()(recon_x, x)
+    # kl_div = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / x.size(0)
+    # return recon_loss + kl_div
+def loss_function(recon_x, x, mu, logvar, kl_weight=1.0):
     recon_loss = nn.MSELoss()(recon_x, x)
     kl_div = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / x.size(0)
-    return recon_loss + kl_div
+    return recon_loss + kl_weight * kl_div
 
 def test(model, test_loader, device):
     model.eval()
@@ -87,14 +91,17 @@ def test(model, test_loader, device):
 def train(model, train_loader, optimizer, device):
     model.train()
     train_loss = 0
+    epoch = 0
     for data in train_loader:
         data = data[0].to(device)
         optimizer.zero_grad()
         recon_batch, mu, logvar = model(data)
-        loss = loss_function(recon_batch, data, mu, logvar)
+        kl_weight = min(1.0, epoch / 50)  # 前 50 个 epoch 逐渐增加到 1.0
+        loss = loss_function(recon_batch, data, mu, logvar, kl_weight)
         loss.backward()
         train_loss += loss.item()
         optimizer.step()
+        epoch = epoch + 1
     return train_loss / len(train_loader.dataset)
 
 def reconstruction_error(recon_x, x):
@@ -110,7 +117,7 @@ def test_reconstruction_error(model, test_loader, device):
             data = data[0].to(device)  # Assuming DataLoader returns (data, labels)
             recon_batch, mu, logvar = model(data)
             error = reconstruction_error(recon_batch, data)
-            total_error += error.item() * data.size(0)
+            total_error += error.item() # * data.size(0)
             num_samples += data.size(0)
 
     return total_error / num_samples  # Mean reconstruction error
@@ -142,15 +149,16 @@ def extract_latent_representations(vae, data_loader, device):
 # Main script
 def main():
     # Parameters
-    input_dim = 418 #64 #450
-    hidden_dim_grid = [[512]]
-    latent_dim_grid = [16] #8, 16
-    batch_size_grid = [128]
-    epochs_grid = [50]
-    learning_rate_grid = [1e-6]
+    input_dim = 246 #418 #64 #450
+    hidden_dim_grid = [[1024, 512, 128, 64]]
+    latent_dim_grid = [64] #8, 16
+    batch_size_grid = [4096]
+    epochs_grid = [1000]
+    learning_rate_grid = [5e-5]
     real_data_path = r"E:\FDI\OneDrive_1_2-16-2025\IEEE118Normal_Corrected.csv"
 
-    syn_data_path = r"E:\FDI\SourceCode\PL_Class_FDI_NotScaled.csv"
+    syn_data_path = r"E:\FDI\SourceCode\PL_Class_FDI_NotScaled_lr0.03_1~1.3_100PL.csv"
+    # syn_data_path = r"E:\FDI\SourceCode\PL_Class_FDI_NotScaled_lr0.03.csv"
 
     selected_columns = [f'PL{i}' for i in range(1, 65)]
     grid = itertools.product(hidden_dim_grid, latent_dim_grid, batch_size_grid, epochs_grid, learning_rate_grid)
@@ -161,40 +169,44 @@ def main():
 
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-            columns_to_drop = ['QG12', 'QG19', 'QG11', 'QG34', 'QG45', 'QG2', 'QG47', 'QG33',
-                               'QG30', 'QG10', 'QG46', 'QG9', 'QG20', 'QG44', 'QG3', 'QG24',
-                               'QG37', 'QG18', 'QG14', 'QG43', 'QG15', 'QG39', 'QG26', 'QG29',
-                               'QG35', 'QG22', 'QG51', 'QG54', 'QG42', 'QG31', 'QG6', 'QG21',
-                               'QG48', 'QG17', 'QG5', 'QG25', 'QG7', 'QG28', 'QG38', 'QG8',
-                               'QG16', 'QG13', 'QG1', 'QG23', 'QG4', 'QG49', 'QG50', 'QG52',
-                               'QG40', 'QG41', 'QG27', 'Label', 'QG32', 'QG36', 'QG53']
-
             # Load and preprocess data
-            data = pd.read_csv(real_data_path).drop(columns=columns_to_drop, errors='ignore')#.to_numpy()
-            print(data.shape)
-            print(data.columns)
-            # Independent variables
-            vgm_columns = [col for col in data.columns if 'VGM' in col]
-            pg_columns = [col for col in data.columns if 'PG' in col]
-            pl_columns = [col for col in data.columns if 'PL' in col]
-            ql_columns = [col for col in data.columns if 'QL' in col]
+            data = pd.read_csv(real_data_path)
 
-            # Dependent variables
+            # columns_to_drop = [col for col in data.columns if 'QG' in col]
+            # columns_to_drop.append("Label")
+            # data = data.drop(columns=columns_to_drop, errors='ignore').to_numpy()
+
+            pl_columns = [col for col in data.columns if 'PL' in col]
             vlm_columns = [col for col in data.columns if 'VLM' in col]
             vla_columns = [col for col in data.columns if 'VLA' in col]
             vga_columns = [col for col in data.columns if 'VGA' in col]
-            selected_columns = [vlm_columns + vla_columns + vga_columns + vgm_columns + pg_columns + pl_columns + ql_columns]
+            selected_columns = vlm_columns + vla_columns + vga_columns + pl_columns
+
             data = data[selected_columns].to_numpy()
+            # print(data.shape)
+            # print(data.columns)
+            # Independent variables
+            # vgm_columns = [col for col in data.columns if 'VGM' in col]
+            # pg_columns = [col for col in data.columns if 'PG' in col]
+            # pl_columns = [col for col in data.columns if 'PL' in col]
+            # ql_columns = [col for col in data.columns if 'QL' in col]
+            #
+            # # Dependent variables
+            # vlm_columns = [col for col in data.columns if 'VLM' in col]
+            # vla_columns = [col for col in data.columns if 'VLA' in col]
+            # vga_columns = [col for col in data.columns if 'VGA' in col]
+            # selected_columns = [vlm_columns + vla_columns + vga_columns + pl_columns]
+            # data = data[selected_columns].to_numpy()
             # data = pd.read_csv(r"E:\FDI\OneDrive_1_1-15-2025\118\Datasets\IEEE118NormalWithPd_Qd.csv")[selected_columns].to_numpy()
             # scaler = MinMaxScaler()
             # data_scaled = scaler.fit_transform(data.values)
 
             X_test_syn = pd.read_csv(syn_data_path)[selected_columns].to_numpy()
-            # X_test_syn = pd.read_csv(r"E:\FDI\OneDrive_1_1-15-2025\118\Datasets\PL_class.csv")[selected_columns].to_numpy()
+            # X_test_syn = pd.read_csv(syn_data_path).to_numpy()
             random_indices = np.random.choice(X_test_syn.shape[0], size=7001, replace=False)
             X_test_syn = X_test_syn[random_indices,:473]
-            print(X_test_syn.shape)
-            print(X_test_syn.columns)
+            # print(X_test_syn.shape)
+            # print(X_test_syn.columns)
 
             # Split data into training and testing sets (80:20)
             X_train, X_test = train_test_split(data, test_size=0.2, random_state=42)
@@ -242,22 +254,22 @@ def main():
             print(val_losses)
             epochs = list(range(1, len(train_losses) + 1))
 
-            plt.plot(epochs, train_losses, marker='o', linestyle='-', color='b', label="Training Loss")
+            plt.plot(epochs[10:], train_losses[10:], marker='o', linestyle='-', color='r', label="Training Loss")
             plt.xlabel("Epochs")
             plt.ylabel("Loss Value")  # Ensures y-axis correctly represents loss
             plt.title("Training Loss Curve")
             plt.legend()
             plt.grid(True)
-            plt.savefig(r"E:\FDI\SourceCode\result\training_loss.png", dpi=300, bbox_inches="tight")
+            # plt.savefig(r"E:\FDI\SourceCode\result\training_loss.png", dpi=300, bbox_inches="tight")
 
 
-            plt.plot(epochs, val_losses, marker='o', linestyle='-', color='b', label="Validation Loss")
+            plt.plot(epochs[10:], val_losses[10:], marker='o', linestyle='-', color='b', label="Validation Loss")
             plt.xlabel("Epochs")
             plt.ylabel("Loss Value")  # Ensures y-axis correctly represents loss
-            plt.title("Validation Loss Curve")
+            plt.title("Loss Curve")
             plt.legend()
             plt.grid(True)
-            plt.savefig(r"E:\FDI\SourceCode\result\validating_loss.png", dpi=300, bbox_inches="tight")
+            plt.savefig(r"E:\FDI\SourceCode\result\loss.png", dpi=300, bbox_inches="tight")
 
             # torch.load("vae_whole.pth")
 
@@ -266,45 +278,50 @@ def main():
             test_error = test_reconstruction_error(model, test_loader, device)
             print("Final real test Recon error", round(test_error, 3), file=file, flush=True)
 
+            train_error = test_reconstruction_error(model, train_loader, device)
+            print("Final real train Recon error", round(train_error, 3), file=file, flush=True)
+
             test_tensor_syn = torch.tensor(X_test_syn, dtype=torch.float32)
             test_loader_syn = DataLoader(TensorDataset(test_tensor_syn), batch_size=batch_size, shuffle=False)
             test_error_syn = test_reconstruction_error(model, test_loader_syn, device)
             test_loss_syn = test(model, test_loader_syn, device)
             print("Final PL syn test Loss", round(test_loss_syn, 3), "\n", file=file, flush=True)
             print("Final PL syn test Recon error", round(test_error_syn, 3), "\n", file=file, flush=True)
+            #
+            # z_real = extract_latent_representations(model, test_loader, device)
+            # z_synthetic = extract_latent_representations(model, test_loader_syn, device)
+            # z_combined = np.vstack((z_real, z_synthetic))
+            # labels = np.array([0] * len(z_real) + [1] * len(z_synthetic))
+            #
+            # print(f"Shape of z_combined: {z_combined.shape}")  # Expected: (num_real + num_synthetic, latent_dim)
+            # print(f"Shape of labels: {labels.shape}")  # Expected: (num_real + num_synthetic,)
 
-            z_real = extract_latent_representations(model, test_loader, device)
-            z_synthetic = extract_latent_representations(model, test_loader_syn, device)
-            z_combined = np.vstack((z_real, z_synthetic))
-            labels = np.array([0] * len(z_real) + [1] * len(z_synthetic))
+            # pca = PCA(n_components=2)
+            # z_pca = pca.fit_transform(z_combined)
+            #
+            # plt.figure(figsize=(16, 12))
+            # plt.scatter(z_pca[labels == 0, 0], z_pca[labels == 0, 1], label='Real Data', alpha=0.6)
+            # plt.scatter(z_pca[labels == 1, 0], z_pca[labels == 1, 1], label='Synthetic Data', alpha=0.6)
+            # plt.legend()
+            # plt.title("PCA Projection of Latent Space")
+            # plt.xlabel("PC1")
+            # plt.ylabel("PC2")
+            # plt.savefig(r"E:\FDI\SourceCode\result\pca_latent.png", dpi=300)
+            #
+            #
+            # tsne = TSNE(n_components=2, perplexity=30, random_state=42)
+            # z_tsne = tsne.fit_transform(z_combined)
+            #
+            # plt.figure(figsize=(16, 12))
+            # plt.scatter(z_tsne[labels == 0, 0], z_tsne[labels == 0, 1], label='Real Data', alpha=0.6)
+            # plt.scatter(z_tsne[labels == 1, 0], z_tsne[labels == 1, 1], label='Synthetic Data', alpha=0.6)
+            # plt.legend()
+            # plt.title("t-SNE Projection of Latent Space")
+            # plt.xlabel("t-SNE Component 1")
+            # plt.ylabel("t-SNE Component 2")
+            # plt.savefig(r"E:\FDI\SourceCode\result\tsne_latent.png", dpi=300)
 
-            print(f"Shape of z_combined: {z_combined.shape}")  # Expected: (num_real + num_synthetic, latent_dim)
-            print(f"Shape of labels: {labels.shape}")  # Expected: (num_real + num_synthetic,)
 
-            pca = PCA(n_components=2)
-            z_pca = pca.fit_transform(z_combined)
-
-            plt.figure(figsize=(16, 12))
-            plt.scatter(z_pca[labels == 0, 0], z_pca[labels == 0, 1], label='Real Data', alpha=0.6)
-            plt.scatter(z_pca[labels == 1, 0], z_pca[labels == 1, 1], label='Synthetic Data', alpha=0.6)
-            plt.legend()
-            plt.title("PCA Projection of Latent Space")
-            plt.xlabel("PC1")
-            plt.ylabel("PC2")
-            plt.savefig(r"E:\FDI\SourceCode\result\pca_latent.png", dpi=300)
-
-
-            tsne = TSNE(n_components=2, perplexity=30, random_state=42)
-            z_tsne = tsne.fit_transform(z_combined)
-
-            plt.figure(figsize=(16, 12))
-            plt.scatter(z_tsne[labels == 0, 0], z_tsne[labels == 0, 1], label='Real Data', alpha=0.6)
-            plt.scatter(z_tsne[labels == 1, 0], z_tsne[labels == 1, 1], label='Synthetic Data', alpha=0.6)
-            plt.legend()
-            plt.title("t-SNE Projection of Latent Space")
-            plt.xlabel("t-SNE Component 1")
-            plt.ylabel("t-SNE Component 2")
-            plt.savefig(r"E:\FDI\SourceCode\result\tsne_latent.png", dpi=300)
 
             # X_test_syn = pd.read_csv(r"E:\FDI\OneDrive_1_1-15-2025\118\Datasets\Combine_class.csv").to_numpy()
             # random_indices = np.random.choice(X_test_syn.shape[0], size=14001, replace=False)
