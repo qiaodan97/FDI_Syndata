@@ -1,0 +1,155 @@
+import pandas as pd
+import numpy as np
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
+from xgboost import XGBRegressor
+import random
+from sklearn.linear_model import Ridge
+from sklearn.ensemble import RandomForestRegressor
+from lightgbm import LGBMRegressor
+from sklearn.multioutput import MultiOutputRegressor
+
+
+def independent_var(data, cols, changing_rate):
+    """
+    Multiply selected columns by random factors in [1, 1+changing_rate] row-wise.
+    """
+    for col in cols:
+        if col not in data.columns:
+            raise KeyError(f"Column not found in X: {col}")
+        random_factors = np.random.uniform(1, 1 + changing_rate, size=len(data))
+        data[col] *= random_factors
+    return data
+
+
+def dependent_var(real_X, real_y, syn_X, model="XGBoost", scale=False):
+    """
+    Train on real (X->y), predict y for syn_X, and report test MSE on held-out real split.
+    """
+    if scale:
+        x_scaler = MinMaxScaler()
+        y_scaler = MinMaxScaler()
+        real_X_scaled = x_scaler.fit_transform(real_X)
+        syn_X_scaled = x_scaler.transform(syn_X)
+        real_y_scaled = y_scaler.fit_transform(real_y)
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            real_X_scaled, real_y_scaled, test_size=0.2, random_state=42
+        )
+    else:
+        X_train, X_test, y_train, y_test = train_test_split(
+            real_X, real_y, test_size=0.2, random_state=42
+        )
+        syn_X_scaled = syn_X  # keep naming consistent
+
+    X_val, X_test, y_val, y_test = train_test_split(
+        X_test, y_test, test_size=0.5, random_state=42
+    )
+
+    if model == "XGBoost":
+        xgb_regressor = XGBRegressor(
+            n_estimators=1000,
+            learning_rate=0.1,
+            max_depth=6,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            early_stopping_rounds=50,
+            objective="reg:squarederror",
+        )
+        xgb_regressor.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=50)
+        y_pred = xgb_regressor.predict(X_test)
+        syn_y = xgb_regressor.predict(syn_X_scaled)
+
+    elif model == "LightGBM":
+        regressor = MultiOutputRegressor(
+            LGBMRegressor(
+                n_estimators=600,
+                learning_rate=0.1,
+                max_depth=6,
+                subsample=0.8,
+                colsample_bytree=0.8,
+            )
+        )
+        regressor.fit(X_train, y_train)
+        y_pred = regressor.predict(X_test)
+        syn_y = regressor.predict(syn_X_scaled)
+
+    elif model == "MultiOutputRegressor":
+        regr = MultiOutputRegressor(Ridge(random_state=100))
+        regr.fit(X_train, y_train)
+        y_pred = regr.predict(X_test)
+        syn_y = regr.predict(syn_X_scaled)
+
+    elif model == "RandomForest":
+        rf = MultiOutputRegressor(RandomForestRegressor(n_estimators=100, random_state=100))
+        rf.fit(X_train, y_train)
+        y_pred = rf.predict(X_test)
+        syn_y = rf.predict(syn_X_scaled)
+
+    else:
+        raise ValueError("Unsupported model type.")
+
+    mse = mean_squared_error(y_test, y_pred)
+    print(f"Real Data Mean Squared Error for {model}:", mse)
+
+    # If y was scaled, you may want to invert back to original units for saving.
+    if scale:
+        syn_y = y_scaler.inverse_transform(syn_y)
+
+    return syn_y
+
+
+def main():
+    for percentage in [0.75]:
+        # ======== CHANGE THIS PATH TO YOUR IEEE-14 NORMAL CSV ========
+        data_real = pd.read_csv(r"E:\FDI\_FromMarzia\_FromMarzia\FDIG\FDIG\ieee14_nonzero_pg_dataset.csv")
+
+        # -------------------------
+        # IEEE-14 column groups
+        # -------------------------
+        # Inputs (independent variables): generator outputs + loads
+        gen_pg_cols = [c for c in data_real.columns if c.startswith("GenBus") and c.endswith("_PG")]
+        gen_qg_cols = [c for c in data_real.columns if c.startswith("GenBus") and c.endswith("_QG")]
+        pl_cols = [c for c in data_real.columns if c.startswith("Bus") and c.endswith("_PL")]
+        ql_cols = [c for c in data_real.columns if c.startswith("Bus") and c.endswith("_QL")]
+
+        # Targets (dependent variables): bus voltage magnitude + angle
+        v_cols = [c for c in data_real.columns if c.startswith("Bus") and c.endswith("_V")]
+        angle_cols = [c for c in data_real.columns if c.startswith("Bus") and c.endswith("_angle")]
+
+        X_cols = gen_pg_cols + gen_qg_cols + pl_cols + ql_cols
+        y_cols = v_cols + angle_cols
+
+        missing_X = [c for c in X_cols if c not in data_real.columns]
+        missing_y = [c for c in y_cols if c not in data_real.columns]
+        if missing_X or missing_y:
+            raise KeyError(f"Missing columns. X missing: {missing_X}, y missing: {missing_y}")
+
+        X = data_real[X_cols].copy()
+        y = data_real[y_cols].copy()
+
+        print("Generating independent data (IEEE-14)")
+        # Option A (recommended): perturb a sampled subset of PL columns
+        independent_values = independent_var(X.copy(), ["Bus8_PL", "Bus2_PL"], changing_rate=0.3)
+
+        # Option B: perturb ALL PL columns (uncomment if desired)
+        # independent_values = independent_var(X.copy(), pl_cols, changing_rate=0.1)
+
+        print("Generating dependent data (IEEE-14)")
+        dependent_values = dependent_var(X, y, independent_values, model="LightGBM", scale=False)
+
+        result_df = pd.concat(
+            [independent_values, pd.DataFrame(dependent_values, columns=y.columns)],
+            axis=1
+        )
+
+        print("Saving results")
+        result_df.to_csv(
+            f"IEEE14_PL_Class_FDI_NotScaled_range+1.3_nestimator600_LightGBM.csv",
+            index=False
+        )
+
+
+if __name__ == "__main__":
+    main()
