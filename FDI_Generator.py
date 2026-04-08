@@ -32,13 +32,33 @@ def dependent_var(real_X, real_y, syn_X, model="XGBoost", nestimator=600, scale=
     # random forest?
     # multiregressor output
     if model == "XGBoost":
-        xgb_regressor = XGBRegressor(n_estimators=nestimator,
-                                     learning_rate=0.1,
-                                     max_depth=6,
-                                     subsample=0.8,
-                                     colsample_bytree=0.8,
-                                     early_stopping_rounds=50,
-                                     objective='reg:squarederror')
+        xgb_regressor = XGBRegressor(
+            n_estimators=2500,
+            learning_rate=0.03,
+            max_depth=10,
+            min_child_weight=5,
+            gamma=0.1,
+            subsample=0.7,
+            colsample_bytree=0.7,
+            reg_alpha=1,
+            reg_lambda=5,
+            objective='reg:squarederror',
+            early_stopping_rounds=100
+        )
+        # xgb_regressor = XGBRegressor(n_estimators=nestimator,
+        #                              learning_rate=0.05,
+        #                              max_depth=10,
+        #                              subsample=0.8,
+        #                              colsample_bytree=0.8,
+        #                              early_stopping_rounds=50,
+        #                              objective='reg:squarederror')
+        # xgb_regressor = XGBRegressor(n_estimators=nestimator,
+        #                              learning_rate=0.1,
+        #                              max_depth=6,
+        #                              subsample=0.8,
+        #                              colsample_bytree=0.8,
+        #                              early_stopping_rounds=50,
+        #                              objective='reg:squarederror')
         xgb_regressor.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=50)
         y_pred = xgb_regressor.predict(X_test)
         syn_y = xgb_regressor.predict(syn_X)
@@ -77,25 +97,38 @@ def dependent_var(real_X, real_y, syn_X, model="XGBoost", nestimator=600, scale=
     return syn_y
 
 def main():
-    for nestimator in [600, 800, 1000]:
-        for model in ["XGBoost", "LightGBM"]:
-            data_real = pd.read_csv(r"D:\FDI\OneDrive_1_2-16-2025\IEEE118Normal_Corrected.csv")
+    # for nestimator in [600, 800, 1000]:
+    #     for model in ["XGBoost", "LightGBM"]:
+    for nestimator in [2000]:
+        for model in ["XGBoost"]:
+            data_real = pd.read_csv(r"pf_dataset_FINAL_correct_PQ_IEEE118small.csv")
             # Independent variables
-            vgm_columns = [col for col in data_real.columns if 'VGM' in col]
-            pg_columns = [col for col in data_real.columns if 'PG' in col]
-            qg_columns = [col for col in data_real.columns if 'QG' in col]
-            pl_columns = [col for col in data_real.columns if 'PL' in col]
-            ql_columns = [col for col in data_real.columns if 'QL' in col]
+            gen_pg_cols = [f"PG{i}" for i in range(1, 119)]
+            gen_qg_cols = [f"QG{i}" for i in range(1, 119)]
+            pl_cols = [f"PL{i}" for i in range(1, 119)]
+            ql_cols = [f"QL{i}" for i in range(1, 119)]
+            qsh_cols = [f"Qsh{i}" for i in range(1, 119)]
+            q_cols = [f"Q{i}" for i in range(1, 119)]
+            p_cols = [f"P{i}" for i in range(1, 119)]
 
-            # Dependent variables
-            vlm_columns = [col for col in data_real.columns if 'VLM' in col]
-            vla_columns = [col for col in data_real.columns if 'VLA' in col]
-            vga_columns = [col for col in data_real.columns if 'VGA' in col]
+            # Targets (dependent variables): bus voltage magnitude + angle
+            v_cols = [f"V{i}" for i in range(1, 119)]
+            angle_cols = [f"theta{i}" for i in range(1, 119)]
 
-            X = data_real[vgm_columns + pg_columns + pl_columns + ql_columns + qg_columns]
-            y = data_real[vlm_columns + vla_columns + vga_columns]
+            X_cols = gen_pg_cols + gen_qg_cols + pl_cols + ql_cols  # + qsh_cols
+            y_cols = v_cols + angle_cols
+
+            X = data_real[X_cols].copy()
+            y = data_real[y_cols].copy()
             print("Generating independent data")
-            independent_values = independent_var(X.copy(), ["PL60", "PL117", "PL81", "PL57", "PL43", "PL16", "PL50", "PL78", "PL41", "PL20", "PL35", "PL82","PL7","PL45","PL2","PL108","PL13","PL33","PL101","PL95"], 0.3)
+            independent_values = independent_var(X.copy(), ["PL59", "PL116", "PL90"], 0.1)
+
+
+
+
+
+
+        # ["PL60", "PL117", "PL81", "PL57", "PL43", "PL16", "PL50", "PL78", "PL41", "PL20", "PL35", "PL82","PL7","PL45","PL2","PL108","PL13","PL33","PL101","PL95"], 0.3)
             # ["PL37", "PL30", "PL5", "PL9", "PL38", "PL11", "PL81", "PL67", "PL68", "PL63", "PL64", "PL71", "PL93", "PL88"] pandapower
             # ["PL23", "PL30", "PL38", "PL64", "PL68", "PL102"] statistical analysis
             print("Generating dependent data")
@@ -104,7 +137,7 @@ def main():
             result_df = pd.concat([independent_values, pd.DataFrame(dependent_values, columns=y.columns)], axis=1)
 
             print("Saving results")
-            result_df.to_csv(f'IEEE118_PL_Class_FDI_NotScaled_range+1.3_nestimator{nestimator}_{model}.csv', index=False)
+            result_df.to_csv(f'IEEE118_PL_Class_FDI_NotScaled_range+1.3_nestimator{nestimator}_{model}_model4.csv', index=False)
             # result_df.to_csv('Real_AllScaled.csv', index=False)
             # result_df.to_csv('Real_XScaled.csv', index=False)
 

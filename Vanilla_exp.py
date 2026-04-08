@@ -106,51 +106,26 @@ def extract_latent_representations(vae, data_loader, device):
 # Main script
 def main():
     # Parameters
-    input_dim = 246 #246 39
+    input_dim = 84 #246 39
     hidden_dim_grid = [[1024, 512, 128, 64]]
     latent_dim_grid = [64] #8, 16
     batch_size_grid = [4096]
     epochs_grid = [1000]
 
-    real_data_path = r"D:\FDI\OneDrive_1_2-16-2025\IEEE118Normal_Corrected.csv"
+    # real_data_path = r"pf_dataset_FINAL_correct_PQ_IEEE14small.csv"
+    real_data_path = r"pf_dataset_FINAL_correct_PQ_IEEE118small.csv"
+
     syn_data_paths = [
-                    "IEEE118_PL_Class_FDI_NotScaled_range+1.3_nestimator600_lightgbm.csv",
-                    "IEEE118_PL_Class_FDI_NotScaled_range+1.3_nestimator800_lightgbm.csv",
-                    "IEEE118_PL_Class_FDI_NotScaled_range+1.3_nestimator1000_lightgbm.csv",
-                    "IEEE118_PL_Class_FDI_NotScaled_range+1.3_nestimator600_XGBoost.csv",
-                    "IEEE118_PL_Class_FDI_NotScaled_range+1.3_nestimator800_XGBoost.csv",
-                    "IEEE118_PL_Class_FDI_NotScaled_range+1.3_nestimator1000_XGBoost.csv"
-                    ]
-    # real_data_path = r"D:\FDI\_FromMarzia\_FromMarzia\FDIG\FDIG\ieee14_nonzero_pg_dataset.csv"
+                      r"IEEE118_PL_Class_FDI_NotScaled_range+1.3_nestimator2000_XGBoost_model4.csv",
+                      ]
 
     # syn_data_paths = [
-    #                   r"IEEE14_PL_Class_FDI_NotScaled_range+1.3_nestimator600_LightGBM.csv",
-    #                   r"IEEE14_PL_Class_FDI_NotScaled_range+1.3_nestimator800_LightGBM.csv",
-    #                   r"IEEE14_PL_Class_FDI_NotScaled_range+1.3_nestimator1000_LightGBM.csv",
-    #                   r"IEEE14_PL_Class_FDI_NotScaled_range+1.3_nestimator600_XGBoost.csv",
-    #                   r"IEEE14_PL_Class_FDI_NotScaled_range+1.3_nestimator800_XGBoost.csv",
-    #                   r"IEEE14_PL_Class_FDI_NotScaled_range+1.3_nestimator1000_XGBoost.csv",
+    #                   r"IEEE14_PL_Class_FDI_NotScaled_range+1.3_nestimator600_XGBoost_model2.csv",
     #                   ]
-    # real_data_path = r"E:\FDI\OneDrive_1_2-16-2025\IEEE118Normal_Corrected.csv"
+    # real_data_path = r"D:\FDI\SourceCode\14\P_Q_15k.csv"
     #
-    # syn_data_paths = [r"PL_Class_FDI_NotScaled_range+1.1_nestimator600_lightgbm.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.1_nestimator800_lightgbm.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.1_nestimator1000_lightgbm.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.3_nestimator600_lightgbm.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.3_nestimator800_lightgbm.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.3_nestimator1000_lightgbm.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.5_nestimator600_lightgbm.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.5_nestimator800_lightgbm.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.5_nestimator1000_lightgbm.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.1_nestimator600.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.1_nestimator800.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.1_nestimator1000.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.3_nestimator600.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.3_nestimator800.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.3_nestimator1000.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.5_nestimator600.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.5_nestimator800.csv",
-    #                   r"PL_Class_FDI_NotScaled_range+1.5_nestimator1000.csv"
+    # syn_data_paths = [
+    #                   r"D:\FDI\SourceCode\GAN_eq_14_zdim64_merged.csv",
     #                   ]
     # Generate all combinations of hyperparameters
     for syn_data_path in syn_data_paths:
@@ -177,7 +152,14 @@ def main():
                 vlm_columns = [col for col in data.columns if 'VLM' in col]
                 vla_columns = [col for col in data.columns if 'VLA' in col]
                 vga_columns = [col for col in data.columns if 'VGA' in col]
-                selected_columns = vlm_columns + vla_columns + vga_columns + pl_columns
+                gen_pg_cols = [f"PG{i}" for i in range(1, 15)]
+                gen_qg_cols = [f"QG{i}" for i in range(1, 15)]
+                pl_columns = [f"PL{i}" for i in range(1, 15)]
+                ql_cols = [f"QL{i}" for i in range(1, 15)]
+                v_cols = [f"V{i}" for i in range(1, 15)]
+                angle_cols = [f"theta{i}" for i in range(1, 15)]
+                qsh_cols = [f"Qsh{i}" for i in range(1, 15)]
+                selected_columns = v_cols + angle_cols + pl_columns  + ql_cols + gen_qg_cols + gen_pg_cols
 
                 # pl_cols = [c for c in data.columns if c.startswith("Bus") and c.endswith("_PL")]
                 #
@@ -189,7 +171,7 @@ def main():
                 data = data[selected_columns].to_numpy()
 
                 # Split data into training and testing sets (80:20)
-                X_train, X_test = train_test_split(data, test_size=0.2, random_state=42)
+                X_train, X_test = train_test_split(data, test_size=0.1, random_state=42)
                 X_val, X_test = train_test_split(X_test, test_size=0.5, random_state=42)
 
                 X_test_syn = pd.read_csv(syn_data_path)[selected_columns].to_numpy()

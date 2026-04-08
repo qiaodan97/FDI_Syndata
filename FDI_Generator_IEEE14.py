@@ -48,14 +48,27 @@ def dependent_var(real_X, real_y, syn_X, model="XGBoost", scale=False):
     )
 
     if model == "XGBoost":
+        # xgb_regressor = XGBRegressor(
+        #     n_estimators=1000,
+        #     learning_rate=0.1,
+        #     max_depth=6,
+        #     subsample=0.8,
+        #     colsample_bytree=0.8,
+        #     early_stopping_rounds=50,
+        #     objective="reg:squarederror",
+        # )
         xgb_regressor = XGBRegressor(
-            n_estimators=1000,
-            learning_rate=0.1,
+            n_estimators=1500,
+            learning_rate=0.05,
             max_depth=6,
+            min_child_weight=3,
+            gamma=0.0,
             subsample=0.8,
             colsample_bytree=0.8,
-            early_stopping_rounds=50,
+            reg_alpha=0.0,
+            reg_lambda=2.0,
             objective="reg:squarederror",
+            early_stopping_rounds=50,
         )
         xgb_regressor.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=50)
         y_pred = xgb_regressor.predict(X_test)
@@ -103,22 +116,25 @@ def dependent_var(real_X, real_y, syn_X, model="XGBoost", scale=False):
 def main():
     for percentage in [0.75]:
         # ======== CHANGE THIS PATH TO YOUR IEEE-14 NORMAL CSV ========
-        data_real = pd.read_csv(r"E:\FDI\_FromMarzia\_FromMarzia\FDIG\FDIG\ieee14_nonzero_pg_dataset.csv")
+        data_real = pd.read_csv(r"pf_dataset_FINAL_correct_PQ_IEEE14small.csv")
 
         # -------------------------
         # IEEE-14 column groups
         # -------------------------
         # Inputs (independent variables): generator outputs + loads
-        gen_pg_cols = [c for c in data_real.columns if c.startswith("GenBus") and c.endswith("_PG")]
-        gen_qg_cols = [c for c in data_real.columns if c.startswith("GenBus") and c.endswith("_QG")]
-        pl_cols = [c for c in data_real.columns if c.startswith("Bus") and c.endswith("_PL")]
-        ql_cols = [c for c in data_real.columns if c.startswith("Bus") and c.endswith("_QL")]
+        gen_pg_cols = [f"PG{i}" for i in range(1, 15)]
+        gen_qg_cols = [f"QG{i}" for i in range(1, 15)]
+        pl_cols = [f"PL{i}" for i in range(1, 15)]
+        ql_cols = [f"QL{i}" for i in range(1, 15)]
+        qsh_cols = [f"Qsh{i}" for i in range(1, 15)]
+        q_cols = [f"Q{i}" for i in range(1, 15)]
+        p_cols = [f"P{i}" for i in range(1, 15)]
 
         # Targets (dependent variables): bus voltage magnitude + angle
-        v_cols = [c for c in data_real.columns if c.startswith("Bus") and c.endswith("_V")]
-        angle_cols = [c for c in data_real.columns if c.startswith("Bus") and c.endswith("_angle")]
+        v_cols = [f"V{i}" for i in range(1, 15)]
+        angle_cols = [f"theta{i}" for i in range(1, 15)]
 
-        X_cols = gen_pg_cols + gen_qg_cols + pl_cols + ql_cols
+        X_cols = gen_pg_cols + gen_qg_cols + pl_cols + ql_cols #+ qsh_cols
         y_cols = v_cols + angle_cols
 
         missing_X = [c for c in X_cols if c not in data_real.columns]
@@ -131,13 +147,13 @@ def main():
 
         print("Generating independent data (IEEE-14)")
         # Option A (recommended): perturb a sampled subset of PL columns
-        independent_values = independent_var(X.copy(), ["Bus8_PL", "Bus2_PL"], changing_rate=0.3)
+        independent_values = independent_var(X.copy(), ["PL3"], changing_rate=0.3)
 
         # Option B: perturb ALL PL columns (uncomment if desired)
         # independent_values = independent_var(X.copy(), pl_cols, changing_rate=0.1)
 
         print("Generating dependent data (IEEE-14)")
-        dependent_values = dependent_var(X, y, independent_values, model="LightGBM", scale=False)
+        dependent_values = dependent_var(X, y, independent_values, model="XGBoost", scale=False)
 
         result_df = pd.concat(
             [independent_values, pd.DataFrame(dependent_values, columns=y.columns)],
@@ -146,7 +162,7 @@ def main():
 
         print("Saving results")
         result_df.to_csv(
-            f"IEEE14_PL_Class_FDI_NotScaled_range+1.3_nestimator600_LightGBM.csv",
+            f"IEEE14_PL_Class_FDI_NotScaled_range+1.3_nestimator600_XGBoost_model2.csv",
             index=False
         )
 
