@@ -18,8 +18,8 @@ total_Q_mismatch = []
 # -----------------------------
 # Base Network
 # -----------------------------
-net = pn.case14()
-# net = pn.case118()
+# net = pn.case14()
+net = pn.case118()
 
 net.bus["min_vm_pu"] = 0.90
 net.bus["max_vm_pu"] = 1.10
@@ -114,8 +114,8 @@ for sample_id in range(N_SAMPLES):
         # -----------------------------
         idx = i + 1
 
-        row[f"P{idx}"] = P_net
-        row[f"Q{idx}"] = Q_net
+        # row[f"P{idx}"] = P_net
+        # row[f"Q{idx}"] = Q_net
         row[f"V{idx}"] = res_bus.loc[i, "vm_pu"]
         row[f"theta{idx}"] = res_bus.loc[i, "va_degree"]
         row[f"PG{idx}"] = P_gen
@@ -159,5 +159,5 @@ print(f"Max Q mismatch: {np.max(np.abs(total_Q_mismatch)):.10e}")
 print("======================================")
 
 
-df.to_csv(f"IEEE14_normal_50k.csv", index=False)
+df.to_csv(f"IEEE118_normal_50k_2.csv", index=False)
 print(f"Dataset saved")
