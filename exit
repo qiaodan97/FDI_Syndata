@@ -1,0 +1,47 @@
+[33mcommit c8744cdd87d809dd257aa1eaefc0e09e63b16d4a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: Qiaodan Luo <qiaodan9797@gmail.com>
+Date:   Thu Jun 25 22:41:19 2026 -0300
+
+    deleted datasets
+
+[33mcommit 494b73b58b394cb6b706bc9674c5fc35e8573325[m
+Author: Qiaodan Luo <qiaodan9797@gmail.com>
+Date:   Thu Jun 25 22:29:02 2026 -0300
+
+    added teacher-student classification model
+
+[33mcommit 42527bd35e3724cc2b0d50794a328550bc0c9933[m
+Author: Qiaodan Luo <qiaodan9797@gmail.com>
+Date:   Fri May 8 11:05:11 2026 -0300
+
+    Updated experiment code and datasets
+
+[33mcommit 31f1b1afd15625e0daf7f9f4dfffd98a1bdafa0f[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: Qiaodan Luo <qiaodan9797@gmail.com>
+Date:   Tue Apr 7 23:03:27 2026 -0300
+
+    Update codes used in experiments
+
+[33mcommit 3371de46cb72f7fb9e462a9e5aa01ad266d6a7b6[m
+Author: Qiaodan Luo <qiaodan9797@gmail.com>
+Date:   Tue Mar 24 21:35:42 2026 -0300
+
+    updated research code
+
+[33mcommit 5d7ee572ed11cbb3fad8c4719c3ca47a51b1ab7c[m
+Author: Qiaodan Luo <qiaodan.luo@dal.ca>
+Date:   Mon Mar 10 19:17:04 2025 -0300
+
+    Update Mar 10th
+
+[33mcommit 8c9801d2cd2643ef9cfe53c3b534744c0dd2ce0c[m
+Author: Qiaodan Luo <qiaodan.luo@dal.ca>
+Date:   Mon Feb 24 18:31:11 2025 -0400
+
+    Initial commit
+
+[33mcommit 17b84fc8b897b5ae6a6e44a2d1b99633f1e56c25[m
+Author: qiaodan97 <83845191+qiaodan97@users.noreply.github.com>
+Date:   Mon Feb 24 18:27:59 2025 -0400
+
+    Initial commit
