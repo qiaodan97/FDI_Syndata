@@ -14,15 +14,15 @@ from torch.utils.data import DataLoader, TensorDataset
 # 1. Load data
 # =========================
 #
-syn_data_name = r"IEEE118_attack_LightGBM.csv"
+# syn_data_name = r"IEEE118_attack_LightGBM.csv"
 # syn_data_name = r"IEEE118_attack_XGBoost.csv"
 # syn_data_name = r"ieee118_sagan.csv"
-real_data_name = r"IEEE118_normal_50k.csv"
+# real_data_name = r"IEEE118_normal_50k.csv"
 
-# syn_data_name = r"IEEE14_attack_LightGBM.csv"
+syn_data_name = r"IEEE14_attack_xgboost_scaled0005.csv"
 # syn_data_name = r"IEEE14_attack_XGBoost.csv"
 # syn_data_name = r"ieee14_sagan.csv"
-# real_data_name = r"IEEE14_normal_50k.csv"
+real_data_name = r"IEEE14_normal_50k.csv"
 normal_df = pd.read_csv(real_data_name)
 attack_df = pd.read_csv(syn_data_name)
 
@@ -33,7 +33,9 @@ normal_df["base_id"] = range(len(normal_df))
 attack_df["base_id"] = range(len(attack_df))
 
 merged_df = pd.concat([normal_df, attack_df], ignore_index=True)
-
+print(normal_df.columns.tolist())
+print(attack_df.columns.tolist())
+print(normal_df.columns.equals(attack_df.columns))
 
 # =========================
 # 2. Paired split by base_id

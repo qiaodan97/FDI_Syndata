@@ -10,6 +10,8 @@ from sklearn.ensemble import RandomForestRegressor
 from lightgbm import LGBMRegressor
 from sklearn.multioutput import MultiOutputRegressor
 
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error, r2_score
 
 def independent_var(data, cols, changing_rate):
     """
@@ -22,30 +24,28 @@ def independent_var(data, cols, changing_rate):
         data[col] *= random_factors
     return data
 
-
-def dependent_var(real_X, real_y, syn_X, model="XGBoost", scale=False):
-    """
-    Train on real (X->y), predict y for syn_X, and report test MSE on held-out real split.
-    """
-    if scale:
-        x_scaler = MinMaxScaler()
-        y_scaler = MinMaxScaler()
-        real_X_scaled = x_scaler.fit_transform(real_X)
-        syn_X_scaled = x_scaler.transform(syn_X)
-        real_y_scaled = y_scaler.fit_transform(real_y)
-
-        X_train, X_test, y_train, y_test = train_test_split(
-            real_X_scaled, real_y_scaled, test_size=0.2, random_state=42
-        )
-    else:
-        X_train, X_test, y_train, y_test = train_test_split(
-            real_X, real_y, test_size=0.2, random_state=42
-        )
-        syn_X_scaled = syn_X  # keep naming consistent
-
+def dependent_var(real_X, real_y, syn_X, model="LightGBM", scale_y=True):
+    X_train, X_test, y_train, y_test = train_test_split(
+        real_X, real_y, test_size=0.2, random_state=42
+    )
     X_val, X_test, y_val, y_test = train_test_split(
         X_test, y_test, test_size=0.5, random_state=42
     )
+
+    x_scaler = StandardScaler()
+    X_train_s = x_scaler.fit_transform(X_train)
+    X_val_s = x_scaler.transform(X_val)
+    X_test_s = x_scaler.transform(X_test)
+    syn_X_s = x_scaler.transform(syn_X)
+
+    if scale_y:
+        y_scaler = StandardScaler()
+        y_train_s = y_scaler.fit_transform(y_train)
+        y_val_s = y_scaler.transform(y_val)
+    else:
+        y_scaler = None
+        y_train_s = y_train
+        y_val_s = y_val
 
     if model == "XGBoost":
         # xgb_regressor = XGBRegressor(
@@ -57,7 +57,7 @@ def dependent_var(real_X, real_y, syn_X, model="XGBoost", scale=False):
         #     early_stopping_rounds=50,
         #     objective="reg:squarederror",
         # )
-        xgb_regressor = XGBRegressor(
+        regressor = XGBRegressor(
             n_estimators=1500,
             learning_rate=0.05,
             max_depth=6,
@@ -67,12 +67,8 @@ def dependent_var(real_X, real_y, syn_X, model="XGBoost", scale=False):
             colsample_bytree=0.8,
             reg_alpha=0.0,
             reg_lambda=2.0,
-            objective="reg:squarederror",
-            early_stopping_rounds=50,
+            objective="reg:squarederror"
         )
-        xgb_regressor.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=50)
-        y_pred = xgb_regressor.predict(X_test)
-        syn_y = xgb_regressor.predict(syn_X_scaled)
 
     elif model == "LightGBM":
         regressor = MultiOutputRegressor(
@@ -84,39 +80,32 @@ def dependent_var(real_X, real_y, syn_X, model="XGBoost", scale=False):
                 colsample_bytree=0.8,
             )
         )
-        regressor.fit(X_train, y_train)
-        y_pred = regressor.predict(X_test)
-        syn_y = regressor.predict(syn_X_scaled)
-
-    elif model == "MultiOutputRegressor":
-        regr = MultiOutputRegressor(Ridge(random_state=100))
-        regr.fit(X_train, y_train)
-        y_pred = regr.predict(X_test)
-        syn_y = regr.predict(syn_X_scaled)
-
-    elif model == "RandomForest":
-        rf = MultiOutputRegressor(RandomForestRegressor(n_estimators=100, random_state=100))
-        rf.fit(X_train, y_train)
-        y_pred = rf.predict(X_test)
-        syn_y = rf.predict(syn_X_scaled)
-
     else:
         raise ValueError("Unsupported model type.")
 
-    mse = mean_squared_error(y_test, y_pred)
-    print(f"Real Data Mean Squared Error for {model}:", mse)
+    regressor.fit(X_train_s, y_train_s)
 
-    # If y was scaled, you may want to invert back to original units for saving.
-    if scale:
-        syn_y = y_scaler.inverse_transform(syn_y)
+    y_pred_s = regressor.predict(X_test_s)
+    syn_y_s = regressor.predict(syn_X_s)
+
+    if scale_y:
+        y_pred = y_scaler.inverse_transform(y_pred_s)
+        syn_y = y_scaler.inverse_transform(syn_y_s)
+    else:
+        y_pred = y_pred_s
+        syn_y = syn_y_s
+
+    print(f"Real Data MSE for {model}:", mean_squared_error(y_test, y_pred))
+    print(f"Real Data R2 for {model}:", r2_score(y_test, y_pred, multioutput="uniform_average"))
 
     return syn_y
 
 
 def main():
-    for percentage in [0.75]:
+    for model in ["XGBoost", "LightGBM"]:
+    # for model in ["LightGBM"]:
         # ======== CHANGE THIS PATH TO YOUR IEEE-14 NORMAL CSV ========
-        data_real = pd.read_csv(r"pf_dataset_FINAL_correct_PQ_IEEE14small.csv")
+        data_real = pd.read_csv(r"IEEE14_normal_50k.csv")
 
         # -------------------------
         # IEEE-14 column groups
@@ -147,24 +136,24 @@ def main():
 
         print("Generating independent data (IEEE-14)")
         # Option A (recommended): perturb a sampled subset of PL columns
-        independent_values = independent_var(X.copy(), ["PL3"], changing_rate=0.3)
+        independent_values = independent_var(X.copy(), ["PL11", "PL4", "PL3"], changing_rate=0.001)
 
         # Option B: perturb ALL PL columns (uncomment if desired)
         # independent_values = independent_var(X.copy(), pl_cols, changing_rate=0.1)
 
-        print("Generating dependent data (IEEE-14)")
-        dependent_values = dependent_var(X, y, independent_values, model="XGBoost", scale=False)
-
-        result_df = pd.concat(
-            [independent_values, pd.DataFrame(dependent_values, columns=y.columns)],
-            axis=1
+        print("Generating dependent data")
+        dependent_values = dependent_var(
+            X,
+            y,
+            independent_values,
+            model=model,
+            scale_y=True
         )
+
+        result_df = pd.concat([independent_values, pd.DataFrame(dependent_values, columns=y.columns)], axis=1)
 
         print("Saving results")
-        result_df.to_csv(
-            f"IEEE14_PL_Class_FDI_NotScaled_range+1.3_nestimator600_XGBoost_model2.csv",
-            index=False
-        )
+        result_df.to_csv(f'IEEE14_attack_{model}_scaled0001_pl11pl4pl3.csv', index=False)
 
 
 if __name__ == "__main__":
