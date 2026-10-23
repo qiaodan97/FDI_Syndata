@@ -127,7 +127,7 @@ def main():
         X = data_real[X_cols].copy()
         y = data_real[y_cols].copy()
         print("Generating independent data")
-        independent_values = independent_var(X.copy(), ["PL59", "PL116", "PL90"], 0.05)
+        independent_values = independent_var(X.copy(), ["PL59", "PL116", "PL90"], 0.1)
 
         print("Generating dependent data")
         dependent_values = dependent_var(
@@ -141,7 +141,7 @@ def main():
         result_df = pd.concat([independent_values, pd.DataFrame(dependent_values, columns=y.columns)], axis=1)
 
         print("Saving results")
-        result_df.to_csv(f'IEEE118_attack_{model}_scaled.csv', index=False)
+        result_df.to_csv(f'IEEE118_attack_{model}_scaled0.1(random+).csv', index=False)
         # result_df.to_csv('Real_AllScaled.csv', index=False)
         # result_df.to_csv('Real_XScaled.csv', index=False)
 

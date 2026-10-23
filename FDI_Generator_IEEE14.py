@@ -13,16 +13,73 @@ from sklearn.multioutput import MultiOutputRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, r2_score
 
-def independent_var(data, cols, changing_rate):
+# def independent_var(data, cols, changing_rate):
+#     """
+#     Multiply selected columns by random factors in [1, 1+changing_rate] row-wise.
+#     """
+#     for col in cols:
+#         if col not in data.columns:
+#             raise KeyError(f"Column not found in X: {col}")
+#         random_factors = np.random.uniform(1 - changing_rate, 1 + changing_rate, size=len(data))
+#         data[col] *= random_factors
+#         # data[col] *= (1 + changing_rate)
+#     return data
+
+def independent_var(data, cols, changing_rate, increase_rate=1):
     """
-    Multiply selected columns by random factors in [1, 1+changing_rate] row-wise.
+    For each selected column:
+    - 80% of samples: increase by changing_rate
+    - 20% of samples: decrease by changing_rate
     """
-    for col in cols:
-        if col not in data.columns:
-            raise KeyError(f"Column not found in X: {col}")
-        random_factors = np.random.uniform(1, 1 + changing_rate, size=len(data))
-        data[col] *= random_factors
+    if increase_rate == 1:
+        for col in cols:
+            if col not in data.columns:
+                raise KeyError(f"Column not found in X: {col}")
+            random_factors = np.random.uniform(1, 1 + changing_rate, size=len(data))
+            data[col] *= random_factors
+            # data[col] *= (1 - changing_rate)
+
+    else:
+        for col in cols:
+            if col not in data.columns:
+                raise KeyError(f"Column not found in X: {col}")
+
+            # Decide whether each sample is increased or decreased
+            increase_mask = np.random.rand(len(data)) < increase_rate
+
+            random_factors = np.empty(len(data))
+
+            # 80%: increase
+            random_factors[increase_mask] = np.random.uniform(
+                1,
+                1 + changing_rate,
+                size=increase_mask.sum()
+            )
+
+            # 20%: decrease
+            random_factors[~increase_mask] = np.random.uniform(
+                1 - changing_rate,
+                1,
+                size=(~increase_mask).sum()
+            )
+
+            data[col] *= random_factors
+
     return data
+
+
+# def independent_var(data, cols, changing_rate):
+#
+#     for i in range(len(data)):
+#         col = np.random.choice(cols)
+#
+#         factor = np.random.uniform(
+#             1 - changing_rate,
+#             1 + changing_rate
+#         )
+#
+#         data.loc[data.index[i], col] *= factor
+#     return data
 
 def dependent_var(real_X, real_y, syn_X, model="LightGBM", scale_y=True):
     X_train, X_test, y_train, y_test = train_test_split(
@@ -103,57 +160,57 @@ def dependent_var(real_X, real_y, syn_X, model="LightGBM", scale_y=True):
 
 def main():
     for model in ["XGBoost", "LightGBM"]:
-    # for model in ["LightGBM"]:
-        # ======== CHANGE THIS PATH TO YOUR IEEE-14 NORMAL CSV ========
-        data_real = pd.read_csv(r"IEEE14_normal_50k.csv")
+        for changing_rate in [0.001, 0.002, 0.005]:
+            # ======== CHANGE THIS PATH TO YOUR IEEE-14 NORMAL CSV ========
+            data_real = pd.read_csv(r"IEEE14_normal_50k.csv")
 
-        # -------------------------
-        # IEEE-14 column groups
-        # -------------------------
-        # Inputs (independent variables): generator outputs + loads
-        gen_pg_cols = [f"PG{i}" for i in range(1, 15)]
-        gen_qg_cols = [f"QG{i}" for i in range(1, 15)]
-        pl_cols = [f"PL{i}" for i in range(1, 15)]
-        ql_cols = [f"QL{i}" for i in range(1, 15)]
-        qsh_cols = [f"Qsh{i}" for i in range(1, 15)]
-        q_cols = [f"Q{i}" for i in range(1, 15)]
-        p_cols = [f"P{i}" for i in range(1, 15)]
+            # -------------------------
+            # IEEE-14 column groups
+            # -------------------------
+            # Inputs (independent variables): generator outputs + loads
+            gen_pg_cols = [f"PG{i}" for i in range(1, 15)]
+            gen_qg_cols = [f"QG{i}" for i in range(1, 15)]
+            pl_cols = [f"PL{i}" for i in range(1, 15)]
+            ql_cols = [f"QL{i}" for i in range(1, 15)]
+            qsh_cols = [f"Qsh{i}" for i in range(1, 15)]
+            q_cols = [f"Q{i}" for i in range(1, 15)]
+            p_cols = [f"P{i}" for i in range(1, 15)]
 
-        # Targets (dependent variables): bus voltage magnitude + angle
-        v_cols = [f"V{i}" for i in range(1, 15)]
-        angle_cols = [f"theta{i}" for i in range(1, 15)]
+            # Targets (dependent variables): bus voltage magnitude + angle
+            v_cols = [f"V{i}" for i in range(1, 15)]
+            angle_cols = [f"theta{i}" for i in range(1, 15)]
 
-        X_cols = gen_pg_cols + gen_qg_cols + pl_cols + ql_cols #+ qsh_cols
-        y_cols = v_cols + angle_cols
+            X_cols = gen_pg_cols + gen_qg_cols + pl_cols + ql_cols #+ qsh_cols
+            y_cols = v_cols + angle_cols
 
-        missing_X = [c for c in X_cols if c not in data_real.columns]
-        missing_y = [c for c in y_cols if c not in data_real.columns]
-        if missing_X or missing_y:
-            raise KeyError(f"Missing columns. X missing: {missing_X}, y missing: {missing_y}")
+            missing_X = [c for c in X_cols if c not in data_real.columns]
+            missing_y = [c for c in y_cols if c not in data_real.columns]
+            if missing_X or missing_y:
+                raise KeyError(f"Missing columns. X missing: {missing_X}, y missing: {missing_y}")
 
-        X = data_real[X_cols].copy()
-        y = data_real[y_cols].copy()
+            X = data_real[X_cols].copy()
+            y = data_real[y_cols].copy()
 
-        print("Generating independent data (IEEE-14)")
-        # Option A (recommended): perturb a sampled subset of PL columns
-        independent_values = independent_var(X.copy(), ["PL11", "PL4", "PL3"], changing_rate=0.001)
+            print("Generating independent data (IEEE-14)")
+            # Option A (recommended): perturb a sampled subset of PL columns
+            independent_values = independent_var(X.copy(), ["PL3"], changing_rate=changing_rate, increase_rate=0.6)
 
-        # Option B: perturb ALL PL columns (uncomment if desired)
-        # independent_values = independent_var(X.copy(), pl_cols, changing_rate=0.1)
+            # Option B: perturb ALL PL columns (uncomment if desired)
+            # independent_values = independent_var(X.copy(), pl_cols, changing_rate=0.1)
 
-        print("Generating dependent data")
-        dependent_values = dependent_var(
-            X,
-            y,
-            independent_values,
-            model=model,
-            scale_y=True
-        )
+            print("Generating dependent data")
+            dependent_values = dependent_var(
+                X,
+                y,
+                independent_values,
+                model=model,
+                scale_y=True
+            )
 
-        result_df = pd.concat([independent_values, pd.DataFrame(dependent_values, columns=y.columns)], axis=1)
+            result_df = pd.concat([independent_values, pd.DataFrame(dependent_values, columns=y.columns)], axis=1)
 
-        print("Saving results")
-        result_df.to_csv(f'IEEE14_attack_{model}_scaled0001_pl11pl4pl3.csv', index=False)
+            print("Saving results")
+            result_df.to_csv(f'IEEE14_attack_{model}_scaled{changing_rate}(random+-6040).csv', index=False)
 
 
 if __name__ == "__main__":

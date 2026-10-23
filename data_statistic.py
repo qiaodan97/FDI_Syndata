@@ -13,32 +13,33 @@ from sklearn.metrics import accuracy_score, roc_auc_score, f1_score
 # =========================
 # Load datasets
 # =========================
-number = "IEEE14"
-# real_data = pd.read_csv(r"IEEE118_normal_50k.csv")
-#
-# model_files = {
-#     "SAGAN": r"ieee118_sagan.csv",
-#     "XGBoost": r"IEEE118_attack_XGBoost.csv",
-#     "LightGBM": r"IEEE118_attack_LightGBM.csv",
-# }
-#
-# real_data = pd.read_csv(r"IEEE118_normal_50k.csv")
-# sagan_data = pd.read_csv(r"ieee118_sagan.csv")
-# xgb_data = pd.read_csv(r"IEEE118_attack_XGBoost.csv")
-# lgbm_data = pd.read_csv(r"IEEE118_attack_LightGBM.csv")
-
-real_data = pd.read_csv(r"IEEE14_normal_50k.csv")
+number = "IEEE118"
+real_data = pd.read_csv(r"IEEE118_normal_50k.csv")
 
 model_files = {
-    "SAGAN": r"ieee14_sagan.csv",
-    "XGBoost": r"IEEE14_attack_XGBoost.csv",
-    "LightGBM": r"IEEE14_attack_LightGBM.csv",
+    "SAGAN": r"ieee118_sagan.csv",
+    "XGBoost": r"IEEE118_attack_xgboost_scaled0.1(random+).csv",
+    "LightGBM": r"IEEE118_attack_LightGBM_scaled0.1(random+).csv",
 }
 
-real_data = pd.read_csv(r"IEEE14_normal_50k.csv")
-sagan_data = pd.read_csv(r"ieee14_sagan.csv")
-xgb_data = pd.read_csv(r"IEEE14_attack_XGBoost.csv")
-lgbm_data = pd.read_csv(r"IEEE14_attack_LightGBM.csv")
+real_data = pd.read_csv(r"IEEE118_normal_50k.csv")
+sagan_data = pd.read_csv(r"ieee118_sagan.csv")
+xgb_data = pd.read_csv(r"IEEE118_attack_xgboost_scaled0.1(random+).csv")
+lgbm_data = pd.read_csv(r"IEEE118_attack_LightGBM_scaled0.1(random+).csv")
+
+# number = "IEEE14"
+# real_data = pd.read_csv(r"IEEE14_normal_50k.csv")
+#
+# model_files = {
+#     "SAGAN": r"ieee14_sagan.csv",
+#     "XGBoost": r"IEEE14_attack_xgboost_scaled0.005(random+).csv",
+#     "LightGBM": r"IEEE14_attack_lightgbm_scaled0.005(random+).csv",
+# }
+#
+# real_data = pd.read_csv(r"IEEE14_normal_50k.csv")
+# sagan_data = pd.read_csv(r"ieee14_sagan.csv")
+# xgb_data = pd.read_csv(r"IEEE14_attack_xgboost_scaled0.005(random+).csv")
+# lgbm_data = pd.read_csv(r"IEEE14_attack_lightgbm_scaled0.005(random+).csv")
 
 # Keep only common columns
 common_cols = sorted(list(set(real_data.columns) & set(sagan_data.columns) & set(xgb_data.columns) & set(lgbm_data.columns)))
@@ -48,7 +49,7 @@ common_cols = sorted(list(set(real_data.columns) & set(sagan_data.columns) & set
 # Preprocessing
 # =========================
 
-def align_and_clean(real_df, syn_df, sample_size=5000, random_state=42):
+def align_and_clean(real_df, syn_df, sample_size=50000, random_state=42):
     columns_to_drop = [
         col for col in set(real_df.columns) | set(syn_df.columns)
         if "Label" in col
@@ -246,7 +247,7 @@ for model_name, file_path in model_files.items():
     real_df, syn_df, common_cols = align_and_clean(
         real_data,
         syn_data,
-        sample_size=5000,
+        sample_size=50000,
         random_state=42
     )
 

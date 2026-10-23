@@ -100,7 +100,7 @@ if __name__ == "__main__":
     #             "IEEE14_PL_Class_FDI_NotScaled_range+1.3_nestimator1000_XGBoost.csv",]
     # df_names = ["pf_dataset_FINAL_correct_PQ_IEEE14.csv"]
     # df_names = ["pf_dataset_FINAL_correct_PQ_IEEE14small.csv"]
-    df_names = [r"IEEE14_PL_Class_FDI_NotScaled_range+1.3_nestimator600_XGBoost_model2.csv"]
+    # df_names = [r"IEEE14_PL_Class_FDI_NotScaled_range+1.3_nestimator600_XGBoost_model2.csv"]
 
     # df_names = ["IEEE118_PL_Class_FDI_NotScaled_range+1.3_nestimator600_LightGBM.csv",
     #             "IEEE118_PL_Class_FDI_NotScaled_range+1.3_nestimator800_LightGBM.csv",
@@ -108,8 +108,25 @@ if __name__ == "__main__":
     #             "IEEE118_PL_Class_FDI_NotScaled_range+1.3_nestimator600_XGBoost.csv",
     #             "IEEE118_PL_Class_FDI_NotScaled_range+1.3_nestimator800_XGBoost.csv",
     #             "IEEE118_PL_Class_FDI_NotScaled_range+1.3_nestimator1000_XGBoost.csv",]
-    # df_names = ["pf_dataset_FINAL_correct_PQ_IEEE118small.csv"]
-    # df_names = ["IEEE118_PL_Class_FDI_NotScaled_range+1.3_nestimator2000_XGBoost_model4.csv"]
+    # df_names = ["IEEE118_attack_XGBoost_model2.csv"]
+    # df_names = ["IEEE118_attack_LightGBM_model2.csv"]
+    # df_names = ["ieee118_sagan2.csv"]
+    # df_names = ["ieee14_final.csv"]
+    # df_names = ["IEEE14_attack_LightGBM_model1.csv"]
+    # df_names = ["IEEE14_attack_XGBoost_model1.csv"]
+    # df_names = ["IEEE118_normal_50k.csv"]
+    # df_names = ["IEEE14_normal_50k.csv"]
+    # df_names = ["IEEE118_attack_LightGBM_scaled.csv"]
+    # df_names = ["IEEE118_attack_Xgboost_scaled.csv"]
+    # df_names = ["IEEE14_attack_LightGBM_scaled.csv"]
+    # df_names = ["IEEE14_attack_lightgbm_scaled.csv",
+    #             "IEEE14_attack_Xgboost_scaled.csv",
+    #             "IEEE14_attack_lightgbm_scaled0.csv",
+    #             "IEEE14_attack_Xgboost_scaled0.csv"
+    #             ]
+
+    # df_names = ["IEEE118_attack_xgboost_scaled0.1(random+).csv"]
+    df_names = ["IEEE14_attack_xgboost_scaled0.005(random+).csv"]
     # dataset_num = 118
     dataset_num = 14
     for df_name in df_names:
@@ -159,4 +176,4 @@ if __name__ == "__main__":
         # df_result.to_csv(f"IEEE14_ac_pf_check_results_realdata.csv", index=False)
         # df_result.to_csv(f"IEEE14_ac_pf_check_results_{df_name}.csv", index=False)
         # df_result.to_csv(f"IEEE118_ac_pf_check_results_realdata.csv", index=False)
-        df_result.to_csv(f"IEEE114_ac_pf_check_results_{df_name}.csv", index=False)
+        df_result.to_csv(f"flowequation_{df_name}.csv", index=False)
